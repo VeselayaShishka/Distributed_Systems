@@ -10,7 +10,7 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 
 # Run the service as a dedicated, non-root user.
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
-COPY --chown=appuser:appuser app.py stories.py ./
+COPY --chown=appuser:appuser app.py stories.py models.py ./
 USER appuser
 
 # Documentation of the listening port; docker run -p publishes it.
