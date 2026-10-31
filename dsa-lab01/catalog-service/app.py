@@ -62,28 +62,36 @@ def validate_item(data):
     and a status outside STORY['statuses']. Raise InputError on rejection.
     Do all validation before changing items or next_id.
     """
+    allowed_fields = {"name", "status", "category"}
 
-    if len(data) > 3:
-        raise Exception("Object must contain only name, status and category fields")
+    unknown_fields = set(data.keys()) - allowed_fields
+    if unknown_fields:
+        raise InputError(
+            "unknown_field",
+            f"Unknown fields: {', '.join(sorted(unknown_fields))}."
+        )
 
-    name = validate_field(data.get("name"))
+    name = validate_field(data.get("name"), "name")
 
-    status = validate_field(data.get("status"))
+    status = validate_field(data.get("status"), "status")
     if status not in STORY['statuses']:
-        raise ValueError("invalid_status", f"The {status} field must be one of {STORY['statuses']}.")
+        raise InputError("invalid_status", f"The {status} field must be one of {STORY['statuses']}.")
 
-    category = validate_field(data.get("category"))
+    category = validate_field(data.get("category"), "category")
 
     return name, status, category
 
-def validate_field(input):
+def validate_field(input, name):
+
     if input is None:
-        raise InputError("missing_field", f"The {input} field is required.")
+        raise InputError("missing_field", f"The {name} field is required.")
+    if not isinstance(input, str):
+        raise InputError("invalid_type", f"The {name} field must be a string.")
+
     validated = input.strip()
+
     if not validated:
-        raise InputError("empty_field", f"The {validated} field cannot be empty.")
-    if not isinstance(validated, str):
-        raise InputError("invalid_type", f"The {validated} field must be a string.")
+        raise InputError("empty_field", f"The {name} field cannot be empty.")
     return validated
 
 @app.get("/health")
@@ -93,33 +101,35 @@ def health():
 
 @app.get("/items")
 def list_items():
-    return jsonify([items[item_id] for item_id in sorted(items)])
+    return jsonify([items[item_id].to_dict() for item_id in sorted(items)])
 
 
 @app.get("/items/<int:item_id>")
 def get_item(item_id):
     if item_id not in items:
         return error("not_found", "No item has this ID.", 404)
-    return jsonify(items[item_id])
+    return jsonify(items[item_id].to_dict())
 
 
 @app.post("/items")
 def create_item():
-    """TODO: validate, allocate one ID, store, and return the created item (201)."""
     try:
         data = parse_object()
-        item = validate_item(data)
+        name, status, category = validate_item(data)
     except InputError as e:
         return error(e.code, e.message, e.status)
 
-    book = Book(item[0], item[1], item[2])
+    book = Book(name, status, category)
     items[book.id] = book
 
-    return jsonify(item), 201
+    print(jsonify(book.to_dict()))
+
+    return jsonify(book.to_dict()), 201
 
 @app.put("/items/<int:item_id>")
 def replace_item(item_id):
     """TODO: replace writable fields of an existing item; keep its ID (200)."""
+
     return error("not_implemented", "Checkpoint 3: implement PUT /items/{id}.", 501)
 
 
