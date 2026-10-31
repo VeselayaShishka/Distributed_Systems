@@ -20,7 +20,6 @@ WRITABLE_FIELDS = {"name", "status", "category"}
 
 
 class InputError(Exception):
-    """An HTTP error caused by a request, not by application state."""
 
     def __init__(self, code, message, status=400):
         self.code = code
@@ -38,10 +37,6 @@ def input_error(exc):
 
 
 def parse_object():
-    """Parse JSON and distinguish unsupported media from invalid JSON.
-
-    Call this before validating fields. No state is modified here.
-    """
     raw_body = request.get_data(as_text=True)
     print(repr(raw_body))
     if not request.is_json:
@@ -56,12 +51,6 @@ def parse_object():
 
 
 def validate_item(data):
-    """TODO: return the three validated, trimmed writable fields.
-
-    Reject missing/unknown fields, client IDs, wrong types, empty name/category,
-    and a status outside STORY['statuses']. Raise InputError on rejection.
-    Do all validation before changing items or next_id.
-    """
     allowed_fields = {"name", "status", "category"}
 
     unknown_fields = set(data.keys()) - allowed_fields
@@ -128,12 +117,26 @@ def create_item():
 
 @app.put("/items/<int:item_id>")
 def replace_item(item_id):
-    """TODO: replace writable fields of an existing item; keep its ID (200)."""
+    if item_id not in items:
+        return error("not_found", f"No item with ID: {item_id}.", 404)
 
-    return error("not_implemented", "Checkpoint 3: implement PUT /items/{id}.", 501)
+    try:
+        data = parse_object()
+        name, status, category = validate_item(data)
+    except InputError as e:
+        return error(e.code, e.message, e.status)
 
+    items[item_id].name = name
+    items[item_id].status = status
+    items[item_id].category = category
+
+    return jsonify(items[item_id].to_dict()), 200
 
 @app.delete("/items/<int:item_id>")
 def delete_item(item_id):
-    """TODO: delete an existing item (204, empty body); absent means 404."""
-    return error("not_implemented", "Checkpoint 3: implement DELETE /items/{id}.", 501)
+    item = items.pop(item_id, None)
+
+    if item is None:
+        return error("not_found", f"No item with ID: {item_id}.", 404)
+
+    return '',204
